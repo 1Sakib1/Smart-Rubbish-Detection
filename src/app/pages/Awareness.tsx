@@ -1,9 +1,9 @@
 import { Header } from '../components/Header';
 import { Leaf, Recycle, ShieldAlert, Book, AlertTriangle, CheckCircle2, XCircle, Scale, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
-import cityOfSydneyLogo from 'figma:asset/d0d35aace6f76bd8c38ee735a3b96e7c5b27eb98.png';
-import nswEpaLogo from 'figma:asset/db8b74ec5b456050ad6f7dcaff786adc297a6132.png';
-import recyclingNearYouLogo from 'figma:asset/8523ca3e7bbe90d9d5ca9bc80de410a00f73e732.png';
+import cityOfSydneyLogo from '../../assets/sydney-logo.png';
+import nswEpaLogo from '../../assets/epa-logo.png';
+import recyclingNearYouLogo from '../../assets/recycling-logo.png';
 
 export const Awareness = () => {
   return (
