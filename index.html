@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Smart Rubbish Detection System - Sydney. A comprehensive web application for reporting and managing rubbish issues in Sydney through community engagement and innovative technology." />
+    <meta name="keywords" content="Sydney, Rubbish, Waste Management, Environment, Community, Sustainability" />
+    <meta name="author" content="Smart Rubbish Detection Team" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Smart Rubbish Detection System - Sydney" />
+    <meta property="og:description" content="Making Sydney cleaner through community engagement and innovative technology." />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Smart Rubbish Detection System - Sydney" />
+    <meta property="twitter:description" content="Making Sydney cleaner through community engagement and innovative technology." />
+    
+    <title>Smart Rubbish Detection System - Sydney</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin="" />
+    
+    <!-- GitHub Pages SPA redirect script -->
+    <script>
+      // Single Page Apps for GitHub Pages
+      // https://github.com/rafgraph/spa-github-pages
+      // This script checks if a redirect is present in the query string
+      (function(l) {
+        if (l.search[1] === '/' ) {
+          var decoded = l.search.slice(1).split('&').map(function(s) { 
+            return s.replace(/~and~/g, '&')
+          }).join('?');
+          window.history.replaceState(null, null,
+              l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      }(window.location))
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

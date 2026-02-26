@@ -1,0 +1,403 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { Header } from '../components/Header';
+import { HeatMap } from '../components/HeatMap';
+import { useAuth } from '../context/AuthContext';
+import { saveReport, getReports, Report, getCurrentUser } from '../utils/storage';
+import { SYDNEY_LOCATIONS, RUBBISH_TYPES, LocationPoint } from '../utils/mockData';
+import { getCurrentLocation, reverseGeocode } from '../utils/geocoding';
+import { MapPin, Navigation, Camera, Send, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+export const ReportRubbish = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  const [locationMode, setLocationMode] = useState<'auto' | 'manual'>('auto');
+  const [isDetecting, setIsDetecting] = useState(false);
+  
+  // Form fields
+  const [type, setType] = useState('');
+  const [description, setDescription] = useState('');
+  const [photo, setPhoto] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [address, setAddress] = useState('');
+  
+  // Map data
+  const [mapLocations, setMapLocations] = useState<LocationPoint[]>(SYDNEY_LOCATIONS);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-33.8688, 151.2093]);
+  const [selectedLocation, setSelectedLocation] = useState<[number, number] | null>(null);
+  
+  useEffect(() => {
+    // Load existing reports and merge with mock data
+    const existingReports = getReports();
+    // Keep mock locations plus add new reports
+    setMapLocations(SYDNEY_LOCATIONS);
+  }, []);
+  
+  const handleAutoDetect = async () => {
+    setIsDetecting(true);
+    try {
+      const position = await getCurrentLocation();
+      setLatitude(position.lat.toFixed(6));
+      setLongitude(position.lng.toFixed(6));
+      setMapCenter([position.lat, position.lng]);
+      
+      // Reverse geocode to get address
+      const addressText = await reverseGeocode(position.lat, position.lng);
+      setAddress(addressText);
+      
+      toast.success('Location detected successfully!');
+    } catch (error) {
+      toast.error((error as Error).message, {
+        duration: 5000,
+        description: 'Please check your browser location permissions in the address bar.'
+      });
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+  
+  const handleManualLocation = async () => {
+    if (!latitude || !longitude) {
+      toast.error('Please enter both latitude and longitude');
+      return;
+    }
+    
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      toast.error('Invalid coordinates');
+      return;
+    }
+    
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      toast.error('Coordinates out of range');
+      return;
+    }
+    
+    setMapCenter([lat, lng]);
+    
+    // Reverse geocode
+    const addressText = await reverseGeocode(lat, lng);
+    setAddress(addressText);
+    
+    toast.success('Location pinpointed!');
+  };
+  
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!type || !description) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    if (!latitude || !longitude) {
+      toast.error('Please set a location first');
+      return;
+    }
+    
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    
+    if (!user) {
+      toast.error('You must be logged in to submit a report');
+      return;
+    }
+    
+    const { report, error } = saveReport({
+      userId: user.id,
+      type,
+      description,
+      photo,
+      location: {
+        lat,
+        lng,
+        address,
+      },
+    });
+    
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    
+    if (!report) {
+      toast.error('Failed to submit report');
+      return;
+    }
+    
+    // Add new location to map
+    const newLocation: LocationPoint = {
+      id: report.id,
+      lat,
+      lng,
+      address,
+      reports: 1,
+      intensity: 0.3,
+    };
+    
+    setMapLocations([...mapLocations, newLocation]);
+    
+    toast.success('Report submitted successfully! +10 eco-points', {
+      description: 'Thank you for helping keep Sydney clean!',
+    });
+    
+    // Reset form
+    setType('');
+    setDescription('');
+    setPhoto('');
+    setLatitude('');
+    setLongitude('');
+    setAddress('');
+    
+    // Navigate to dashboard after a delay
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 2000);
+  };
+  
+  const handleMapClick = async (lat: number, lng: number) => {
+    setLatitude(lat.toFixed(6));
+    setLongitude(lng.toFixed(6));
+    setMapCenter([lat, lng]);
+    setSelectedLocation([lat, lng]);
+    
+    // Reverse geocode to get address
+    const addressText = await reverseGeocode(lat, lng);
+    setAddress(addressText);
+    
+    toast.success('Location selected on map!', {
+      description: 'You can now submit your report',
+    });
+  };
+  
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Report Rubbish</h1>
+          <p className="text-sm sm:text-base text-gray-600">Help us keep Sydney clean by reporting rubbish in your area</p>
+        </div>
+        
+        {/* Two Column Layout */}
+        <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
+          {/* Left Column: Report Form */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Report Details</h2>
+            
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+              {/* Rubbish Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rubbish Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[48px]"
+                  required
+                >
+                  <option value="">Select type...</option>
+                  {RUBBISH_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe the rubbish and any relevant details..."
+                  rows={4}
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                  required
+                />
+              </div>
+              
+              {/* Photo Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Photo (Optional)
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    id="photo-upload"
+                  />
+                  <label
+                    htmlFor="photo-upload"
+                    className="flex items-center justify-center w-full px-4 py-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-500 transition-colors active:scale-98 min-h-[56px]"
+                  >
+                    <Camera className="w-5 h-5 text-gray-400 mr-2" />
+                    <span className="text-sm sm:text-base text-gray-600">
+                      {photo ? 'Photo uploaded ✓' : 'Take or upload photo'}
+                    </span>
+                  </label>
+                </div>
+                {photo && (
+                  <div className="mt-3">
+                    <img src={photo} alt="Preview" className="w-full h-48 sm:h-40 object-cover rounded-lg" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Location Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Location <span className="text-red-500">*</span>
+                </label>
+                
+                {/* Location Mode Tabs */}
+                <div className="flex gap-2 mb-4 p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setLocationMode('auto')}
+                    className={`flex-1 py-3 px-3 rounded-lg font-medium transition-all min-h-[48px] ${
+                      locationMode === 'auto'
+                        ? 'bg-white text-green-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <Navigation className="w-4 h-4" />
+                      <span className="text-sm sm:text-base">Auto Detect</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLocationMode('manual')}
+                    className={`flex-1 py-3 px-3 rounded-lg font-medium transition-all min-h-[48px] ${
+                      locationMode === 'manual'
+                        ? 'bg-white text-green-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <MapPin className="w-4 h-4" />
+                      <span className="text-sm sm:text-base">Pinpoint</span>
+                    </div>
+                  </button>
+                </div>
+                
+                {locationMode === 'auto' ? (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleAutoDetect}
+                      disabled={isDetecting}
+                      className="w-full py-4 bg-green-600 text-white rounded-lg text-base font-medium hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 active:scale-98 min-h-[52px]"
+                    >
+                      {isDetecting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Detecting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Navigation className="w-5 h-5" />
+                          <span>Detect My Location</span>
+                        </>
+                      )}
+                    </button>
+                    {address && (
+                      <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm font-medium text-green-900">Detected Location:</p>
+                        <p className="text-sm text-green-700 mt-1 break-words">{address}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={latitude}
+                      onChange={(e) => setLatitude(e.target.value)}
+                      placeholder="Latitude (e.g., -33.8688)"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={longitude}
+                      onChange={(e) => setLongitude(e.target.value)}
+                      placeholder="Longitude (e.g., 151.2093)"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleManualLocation}
+                      className="w-full py-3 bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-800 transition-all flex items-center justify-center space-x-2"
+                    >
+                      <MapPin className="w-5 h-5" />
+                      <span>Set Location</span>
+                    </button>
+                    {address && (
+                      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <p className="text-sm font-medium text-gray-900">Pinned Location:</p>
+                        <p className="text-sm text-gray-700 mt-1 break-words">{address}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              {/* Submit Button */}
+              <button
+                type="submit"
+                className="w-full py-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
+              >
+                <Send className="w-5 h-5" />
+                <span>Submit Report</span>
+              </button>
+            </form>
+          </div>
+          
+          {/* Right Column: Interactive Heat Map */}
+          <div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Sydney Heat Map</h2>
+              <p className="text-sm text-gray-600 mb-2">
+                View rubbish reports across Sydney. Green = low density, Red = high density.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-800 font-medium">💡 Click anywhere on the map to select a location!</p>
+              </div>
+              <HeatMap 
+                locations={mapLocations} 
+                center={mapCenter} 
+                height="550px" 
+                onMapClick={handleMapClick}
+                selectedLocation={selectedLocation}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
