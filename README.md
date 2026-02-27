@@ -39,7 +39,7 @@ This project is developed and maintained by:
 
 ## 🚀 Live Demo
 
-Visit the live application: [https://1sakib1.github.io/Smart-Rubbish-Detection](https://1sakib1.github.io/Smart-Rubbish-Detection)
+Visit the live application: [https://1sakib1.github.io/Smart-Rubbish-Detection](https://smart-rubbish-detection-steel.vercel.app/)
 
 ## 🛠️ Technology Stack
 
